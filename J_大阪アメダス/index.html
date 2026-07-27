@@ -646,15 +646,31 @@
     fixMapSize();
   });
 
-  var PROXY_FALLBACK = 'http://127.0.0.1:8765';
-  var apiBase = ''; /* 解決後: ''（相対）または 'http://127.0.0.1:8765' */
-  var useFile = location.protocol === 'file:';
+  /* 気象庁・地理院へブラウザから直接取得（特定PCのプロキシに依存しない） */
+  var JMA_ORIGIN = 'https://www.jma.go.jp';
+  var GSI_BLANK = 'https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png';
+  var apiBase = ''; /* 任意: ?api=http://host:8765 で旧プロキシ経由 */
+
+  var apiFromQuery = (qs.get('api') || '').replace(/\/$/, '');
+  if (apiFromQuery && !/^https?:\/\/[^\s]+$/i.test(apiFromQuery)) apiFromQuery = '';
 
   function jmaUrl(path) {
-    return apiBase + '/api/jma' + path;
+    if (apiBase) return apiBase + '/api/jma' + path;
+    return JMA_ORIGIN + path;
   }
-  function gsiUrl(path) {
-    return apiBase + '/api/gsi' + path;
+
+  async function probeJmaDirect() {
+    try {
+      var res = await fetch(
+        JMA_ORIGIN + '/bosai/jmatile/data/nowc/targetTimes_N1.json?_=' + Date.now(),
+        { cache: 'no-store' }
+      );
+      if (!res.ok) return false;
+      var text = await res.text();
+      return text.charAt(0) === '[';
+    } catch (e) {
+      return false;
+    }
   }
 
   async function probeProxy(base) {
@@ -670,36 +686,17 @@
   }
 
   async function resolveApiBase() {
-    if (useFile) {
-      if (await probeProxy(PROXY_FALLBACK)) {
-        apiBase = PROXY_FALLBACK;
-        return true;
-      }
-      return false;
-    }
-    if (await probeProxy('')) {
+    /* 通常は気象庁へ直接。失敗時のみ任意プロキシ */
+    if (await probeJmaDirect()) {
       apiBase = '';
       return true;
     }
-    if (await probeProxy(PROXY_FALLBACK)) {
-      apiBase = PROXY_FALLBACK;
-      console.warn('[proxy] 相対 /api/jma が使えないため', PROXY_FALLBACK, 'に切替');
+    if (apiFromQuery && (await probeProxy(apiFromQuery))) {
+      apiBase = apiFromQuery;
+      console.warn('[proxy] 直接取得失敗のため ?api= を使用', apiFromQuery);
       return true;
     }
     return false;
-  }
-
-  /** Cursorプレビュー(3024等)ではプロキシが無いので、8765が生きていればそちらへ移す */
-  async function maybeRedirectToProxyServer() {
-    if (useFile) return false;
-    var port = String(location.port || '');
-    if (port === '8765') return false;
-    if (location.hostname !== '127.0.0.1' && location.hostname !== 'localhost') return false;
-    if (!(await probeProxy(PROXY_FALLBACK))) return false;
-    var u = new URL(PROXY_FALLBACK + location.pathname + location.search);
-    if (!u.searchParams.has('signage')) u.searchParams.set('preview', '1');
-    location.replace(u.href);
-    return true;
   }
 
   /* ========== 地図（正面 384×192） ========== */
@@ -776,10 +773,8 @@
       map.removeLayer(baseLayer);
       baseLayer = null;
     }
-    /* blank＝地名・空港アイコンが少なく、雨雲が見やすい */
-    var baseUrl = (apiBase || '') + '/api/gsi/xyz/blank/{z}/{x}/{y}.png';
-    var baseDirect = 'https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png';
-    baseLayer = L.tileLayer(baseUrl, {
+    /* blank＝地名が少なく雨雲が見やすい。地理院へ直接 */
+    baseLayer = L.tileLayer(GSI_BLANK, {
       pane: 'basemap',
       maxZoom: 14,
       maxNativeZoom: 14,
@@ -788,25 +783,7 @@
       updateWhenIdle: false,
       errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
       className: 'gsi-base'
-    });
-    var tileErrors = 0;
-    baseLayer.on('tileerror', function () {
-      tileErrors += 1;
-      if (tileErrors === 3 && baseLayer && baseLayer._url === baseUrl) {
-        console.warn('[map] gsi proxy failed → direct');
-        map.removeLayer(baseLayer);
-        baseLayer = L.tileLayer(baseDirect, {
-          pane: 'basemap',
-          maxZoom: 14,
-          maxNativeZoom: 14,
-          opacity: 0.4,
-          keepBuffer: 6,
-          updateWhenIdle: false,
-          className: 'gsi-base'
-        }).addTo(map);
-      }
-    });
-    baseLayer.addTo(map);
+    }).addTo(map);
     requestAnimationFrame(function () {
       fixMapSize();
       map.setView([CFG.lat, CFG.lon], CFG.zoom, { animate: false });
@@ -827,14 +804,9 @@
       + frame.basetime + '/none/' + frame.validtime + '/surf/hrpns/{z}/{x}/{y}.png';
   }
 
-  /** 雨判定用：プロキシ経由（canvas 読取で CORS を避ける） */
+  /** 雨判定用（CORS許可あり・直接取得） */
   function tileUrlForSample(frame) {
-    if (frame.product === 'rasrf') {
-      return jmaUrl('/bosai/jmatile/data/rasrf/'
-        + frame.basetime + '/none/' + frame.validtime + '/surf/rasrf/{z}/{x}/{y}.png');
-    }
-    return jmaUrl('/bosai/jmatile/data/nowc/'
-      + frame.basetime + '/none/' + frame.validtime + '/surf/hrpns/{z}/{x}/{y}.png');
+    return tileUrl(frame);
   }
 
   /* jmatile の basetime/validtime は UTC。表示だけ JST に変換する */
@@ -1390,19 +1362,15 @@
   async function boot() {
     var toast = document.getElementById('toast');
     toast.classList.remove('hidden');
-    toast.innerHTML = '<div><div class="spinner"></div>サーバ接続を確認しています…</div>';
-
-    if (await maybeRedirectToProxyServer()) return;
+    toast.innerHTML = '<div><div class="spinner"></div>気象庁データに接続しています…</div>';
 
     var ok = await resolveApiBase();
     if (!ok) {
       toast.innerHTML =
         '雨雲データを取得できません。<br>'
         + '<span style="font-size:11px;color:#9bb0c9">'
-        + '① フォルダ内の <b>start.bat</b> を実行（黒い窓は閉じない）<br>'
-        + '② このURLを開く:<br>'
-        + '<b>http://127.0.0.1:8765/?preview=1</b><br>'
-        + '※ Cursorのプレビュー(3024等)では取得できません<br>'
+        + '気象庁サイトへ直接接続できませんでした。<br>'
+        + 'サイネージ／PCがインターネットに繋がっているか確認してください。<br>'
         + '（今のURL: ' + location.href + '）</span>';
       return;
     }
@@ -1419,7 +1387,7 @@
         '雨雲データを取得できませんでした。<br>'
         + '<span style="font-size:11px;color:#9bb0c9">'
         + String(e && e.message ? e.message : e) + '<br>'
-        + 'start.bat → http://127.0.0.1:8765/?native640=1</span>';
+        + 'ネットワーク接続を確認してください</span>';
     }
   }
 
