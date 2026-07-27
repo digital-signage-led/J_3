@@ -62,21 +62,33 @@
       width: 100%; height: 100%;
       background: #000;
       overflow: hidden;
-      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+      /* Windowsサイネージは Meiryo 固定（プレビューと文字幅・比率を揃える） */
+      font-family: "Meiryo UI", Meiryo, "Yu Gothic UI", sans-serif;
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: geometricPrecision;
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+      font-kerning: none;
+      font-feature-settings: "palt" 0, "pkna" 0;
       margin: 0 !important;
       padding: 0 !important;
+    }
+    #stage, #stage * {
+      text-rendering: geometricPrecision;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
 
     /* 原点 (0,0) から 640×192・ずっと固定 */
     html.native-640, body.native-640 {
       width: 640px !important;
       height: 192px !important;
-      min-width: 640px;
-      min-height: 192px;
-      max-width: 640px;
-      max-height: 192px;
+      min-width: 640px !important;
+      min-height: 192px !important;
+      max-width: 640px !important;
+      max-height: 192px !important;
       margin: 0 !important;
       padding: 0 !important;
       overflow: hidden !important;
@@ -675,33 +687,25 @@
     stage.style.marginLeft = '0';
     stage.style.marginTop = '0';
     stage.style.transformOrigin = '0 0';
-    if (native) {
-      /*
-       * LED取り込みは画面の物理ピクセル (0,0)-(640,192)。
-       * Windows拡大 (125%/150%) だと CSS640px が物理800px になり「大きく」見える。
-       * scale(1/dpr) で物理640×192に合わせる。
-       */
-      var dpr = window.devicePixelRatio || 1;
-      if (!isFinite(dpr) || dpr <= 0) dpr = 1;
-      var s = 1 / dpr;
-      stage.style.transform = (Math.abs(dpr - 1) < 0.02) ? 'none' : ('scale(' + s + ')');
-      var cssW = Math.round(CFG.width / dpr);
-      var cssH = Math.round(CFG.height / dpr);
-      document.documentElement.style.width = cssW + 'px';
-      document.documentElement.style.height = cssH + 'px';
-      document.body.style.width = cssW + 'px';
-      document.body.style.height = cssH + 'px';
-      return;
-    }
+    /* レイアウトは常に 640×192。拡大縮小は transform のみ（文字サイズは変えない） */
     document.documentElement.style.width = '';
     document.documentElement.style.height = '';
     document.body.style.width = '';
     document.body.style.height = '';
+    if (native) {
+      var dpr = window.devicePixelRatio || 1;
+      if (!isFinite(dpr) || dpr <= 0) dpr = 1;
+      /* 物理640×192へ。X/Y同じ倍率のみ（縦横比を崩さない） */
+      var s = 1 / dpr;
+      stage.style.transform = (Math.abs(dpr - 1) < 0.02) ? 'none' : ('scale(' + s + ')');
+      return;
+    }
     var sp = Math.min(window.innerWidth / CFG.width, window.innerHeight / CFG.height);
+    if (!isFinite(sp) || sp <= 0) sp = 1;
     stage.style.transform = 'scale(' + sp + ')';
   }
 
-  /* クライアント左上を画面 (0,0) に合わせ、物理 640×192 に見えるサイズにする */
+  /* 表示領域を 640×192 CSS に固定（文字の再計算が走らないようにする） */
   function ensureNativeViewport(done) {
     if (!native) {
       if (done) done();
@@ -710,21 +714,18 @@
     var tries = 0;
     function tick() {
       tries += 1;
-      var dpr = window.devicePixelRatio || 1;
-      if (!isFinite(dpr) || dpr <= 0) dpr = 1;
-      var cssW = Math.round(CFG.width / dpr);
-      var cssH = Math.round(CFG.height / dpr);
       try {
         var chromeX = Math.max(0, window.outerWidth - window.innerWidth);
         var chromeY = Math.max(0, window.outerHeight - window.innerHeight);
-        window.resizeTo(cssW + chromeX, cssH + chromeY);
+        window.resizeTo(CFG.width + chromeX, CFG.height + chromeY);
         chromeX = Math.max(0, window.outerWidth - window.innerWidth);
         chromeY = Math.max(0, window.outerHeight - window.innerHeight);
         var leftPad = Math.floor(chromeX / 2);
         window.moveTo(-leftPad, -chromeY);
       } catch (e1) {}
       fitStage();
-      var ok = Math.abs(window.innerWidth - cssW) <= 1 && Math.abs(window.innerHeight - cssH) <= 1;
+      var ok = Math.abs(window.innerWidth - CFG.width) <= 1
+        && Math.abs(window.innerHeight - CFG.height) <= 1;
       if (!ok && tries < 12) {
         setTimeout(tick, 60);
         return;
