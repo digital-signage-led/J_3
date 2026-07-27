@@ -109,6 +109,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log('雨雲レーダー 640×192 http://127.0.0.1:' + PORT + '/');
-  console.log('自販機実寸 http://127.0.0.1:' + PORT + '/?native640=1');
+  console.log('LED signage http://127.0.0.1:' + PORT + '/?signage=1');
+  console.log('PC preview  http://127.0.0.1:' + PORT + '/?preview=1');
 });

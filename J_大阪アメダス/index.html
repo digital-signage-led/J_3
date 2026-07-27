@@ -6,26 +6,35 @@
   <meta name="robots" content="noindex" />
   <title>大阪 雨雲レーダー 640×192｜自販機サイネージ</title>
   <script>
-  /* 確認用はウィンドウに拡大。LED本番だけ ?signage=1 で原点(0,0)・640×192固定 */
+  /* LED本番: 原点(0,0)・640×192固定。PC確認だけ ?preview=1 で拡大 */
   (function () {
     var q = new URLSearchParams(location.search);
-    var forceNative = q.get('signage') === '1';
+    var host = location.hostname;
+    var localDev = host === 'localhost' || host === '127.0.0.1' || host === '';
+    var forcePreview = q.get('preview') === '1';
+    var forceNative = !forcePreview && (
+      q.get('signage') === '1' ||
+      q.get('native640') === '1' ||
+      !localDev
+    );
+    function setSearch(params) {
+      var next = location.href.split('?')[0].split('#')[0] + '?' + params.toString();
+      if (location.href.split('#')[0] !== next) {
+        history.replaceState(null, '', next);
+      }
+    }
     if (forceNative) {
       q.delete('preview');
-      if (!q.has('native640')) q.set('native640', '1');
-      var qs = q.toString();
-      if (location.search !== '?' + qs) {
-        history.replaceState(null, '', location.pathname + '?' + qs);
-      }
+      q.set('signage', '1');
+      q.set('native640', '1');
+      setSearch(q);
       document.documentElement.classList.add('native-640');
       window.__RAIN_NATIVE640__ = true;
     } else {
       q.delete('native640');
-      if (q.get('preview') !== '1') q.set('preview', '1');
-      var qs2 = q.toString();
-      if (location.search !== '?' + qs2) {
-        history.replaceState(null, '', location.pathname + '?' + qs2);
-      }
+      q.delete('signage');
+      q.set('preview', '1');
+      setSearch(q);
       document.documentElement.classList.add('browser-preview');
       window.__RAIN_NATIVE640__ = false;
     }
