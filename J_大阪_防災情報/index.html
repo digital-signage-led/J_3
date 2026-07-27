@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<!-- 大阪 防災・台風情報 3面 640×192（左128 | 正面384 | 右128）本番 -->
+<!-- 正面: 台風進路図（気象庁リアルタイム） / 左右: 要約 -->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta name="viewport" content="width=640" />
+  <meta name="robots" content="noindex" />
+  <title>台風情報 3面 640×192 - 大阪</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&family=Noto+Sans+JP:wght@500;700;900&display=swap" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script>
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var localDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    var forceNative = localDev
+      ? q.get('native640') === '1'
+      : q.get('native640') !== '0';
+    if (forceNative) {
+      if (!q.has('native640')) q.set('native640', '1');
+      var qs = q.toString();
+      if (qs && location.search !== '?' + qs) {
+        history.replaceState(null, '', location.pathname + '?' + qs);
+      }
+      document.documentElement.classList.add('native-640');
+    } else {
+      document.documentElement.classList.add('browser-preview');
+    }
+    function addBody() {
+      if (!document.body) return;
+      if (forceNative) {
+        document.body.classList.add('native-640');
+        document.body.classList.remove('browser-preview');
+      } else {
+        document.body.classList.add('browser-preview');
+        document.body.classList.remove('native-640');
+      }
+    }
+    if (document.body) addBody();
+    else document.addEventListener('DOMContentLoaded', addBody);
+  })();
+  </script>
+  <style>
+    :root {
+      --stage-w: 640px;
+      --stage-h: 192px;
+      --face-side: 128px;
+      --face-front: 384px;
+      --top-h: 36px;
+      --foot-h: 32px;
+      --body-h: 124px;
+      --ink: #f4f7fb;
+      --foot-bg: #fff9f0;
+      --foot-ink: #1a2a3a;
+      --bg: #1e3a5f;
+      --accent: #ffd166;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: #1a1a1a;
+      overflow: hidden;
+      font-family: "Inter", "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    html.native-640, body.native-640 {
+      width: 640px !important; height: 192px !important;
+      margin: 0 !important; padding: 0 !important;
+      overflow: hidden !important; background: #000;
+    }
+    body.native-640 .canvas {
+      transform: none !important;
+      position: absolute; top: 0; left: 0; margin: 0;
+    }
+    body.browser-preview {
+      min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: flex-start;
+    }
+    body.browser-preview .canvas {
+      transform: scale(min(calc(100vw / 640), calc(100vh / 192))) !important;
+      transform-origin: top left;
+    }
+
+    .canvas {
+      width: var(--stage-w);
+      height: var(--stage-h);
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      overflow: hidden;
+      transform-origin: top left;
+      background: var(--bg);
+    }
+
+    .face {
+      height: 192px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .face-side { width: var(--face-side); flex: 0 0 var(--face-side); }
+    .face-front {
+      width: var(--face-front);
+      flex: 0 0 var(--face-front);
+      /* 地理院淡色タイルに近い色（ズーム時の黒抜け防止） */
+      background: #d8dde2;
+    }
+
+    .top {
+      height: var(--top-h);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      background: rgba(0,0,0,.22);
+      z-index: 2;
+    }
+    .top-label {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .body {
+      height: var(--body-h);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+      gap: 2px;
+      overflow: hidden;
+    }
+
+    .foot {
+      height: var(--foot-h);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--foot-bg);
+      color: var(--foot-ink);
+      padding: 0 6px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 2;
+    }
+
+    .num-big {
+      font-size: 44px;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+    }
+    .num-unit {
+      font-size: 16px;
+      font-weight: 800;
+      margin-top: 2px;
+      opacity: .92;
+    }
+    .num-big.num-hpa {
+      font-size: 34px;
+      letter-spacing: -0.04em;
+    }
+    .num-unit.unit-hpa {
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+    .cat-pill {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255,107,107,.28);
+      border: 1px solid rgba(255,180,180,.55);
+      color: #ffe0e0;
+    }
+    .cat-pill.td { background: rgba(180,190,205,.25); border-color: rgba(200,210,225,.45); color: #e8eef6; }
+    .cat-pill.low { background: rgba(92,200,255,.22); border-color: rgba(92,200,255,.5); color: #d6f3ff; }
+    .cat-pill.calm { background: rgba(61,214,140,.22); border-color: rgba(61,214,140,.5); color: #d4ffe8; }
+
+    .impact-big {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1.05;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+    .impact-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      opacity: .88;
+      line-height: 1.25;
+      max-width: 116px;
+    }
+    .clock {
+      font-variant-numeric: tabular-nums;
+      font-weight: 900;
+      font-size: 18px;
+      letter-spacing: 0.02em;
+    }
+
+    /* 正面：地図フル */
+    .face-front .map-wrap {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+    #map,
+    .leaflet-container {
+      width: 100%;
+      height: 100%;
+      background: #d8dde2 !important;
+    }
+    /* ズーム切替中もタイルを残し、黒フレームを出さない */
+    .leaflet-fade-anim .leaflet-tile,
+    .leaflet-zoom-anim .leaflet-zoom-animated {
+      transition: none !important;
+    }
+    .leaflet-tile-container img {
+      /* 読み込み待ちタイルの透明＝背景透けを抑える */
+      background: #d8dde2;
+    }
+    img.basemap-gray {
+      filter: grayscale(1) contrast(1.06) brightness(0.94);
+    }
+    .face-front .map-chrome {
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      z-index: 5;
+      pointer-events: none;
+      padding: 4px 8px 18px;
+      background: linear-gradient(180deg, rgba(8,12,20,.82) 0%, rgba(8,12,20,.25) 70%, transparent 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .face-front .map-title {
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-shadow: 0 1px 3px #000;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+    .face-front .map-meta {
+      font-size: 10px;
+      font-weight: 700;
+      opacity: .9;
+      margin-top: 1px;
+      text-shadow: 0 1px 2px #000;
+    }
+    .face-front .map-badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255,107,107,.28);
+      border: 1px solid rgba(255,180,180,.5);
+      color: #ffe0e0;
+    }
+    .face-front .map-badge.calm {
+      background: rgba(61,214,140,.22);
+      border-color: rgba(61,214,140,.5);
+      color: #d4ffe8;
+    }
+    .face-front .map-foot {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 5;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 8px;
+      background: linear-gradient(0deg, rgba(8,12,20,.88), rgba(8,12,20,.35));
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(220,228,238,.92);
+      pointer-events: none;
+    }
+
+    .ty-icon {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, #ffd166, #ff6b6b 55%, #b91c1c);
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 2px rgba(255,107,107,.35), 0 1px 4px rgba(0,0,0,.5);
+      position: relative;
+    }
+    .ty-icon::after {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border-radius: 50%;
+      background: #fff;
+      opacity: .85;
+    }
+    .td-icon {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #9aa7b8;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.45);
+    }
+    .osaka-pin {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #3dd68c;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 2px rgba(61,214,140,.3);
+    }
+    .osaka-label { background: transparent !important; border: none !important; }
+    .osaka-label > div {
+      font-weight: 800;
+      font-size: 10px;
+      color: #fff;
+      text-shadow: 0 0 3px #000, 0 1px 2px #000;
+      white-space: nowrap;
+    }
+
+    .loading-veil {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      /* 暗幕は使わず、淡色の半透明のみ（初回だけ） */
+      background: rgba(216,221,226,.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: #1a2a3a;
+      text-shadow: 0 0 4px #fff;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .loading-veil.show { opacity: 1; }
+
+    .leaflet-control-attribution,
+    .leaflet-control-zoom { display: none !important; }
+
+    .canvas.lv-ty { --bg: #7a1f2b; }
+    .canvas.lv-ty .face-side { background: #7a1f2b; }
+    .canvas.lv-ts { --bg: #1e3a5f; }
+    .canvas.lv-ts .face-side { background: #1e3a5f; }
+    .canvas.lv-td { --bg: #2a4558; }
+    .canvas.lv-td .face-side { background: #2a4558; }
+    .canvas.lv-none { --bg: #2f6a4a; }
+    .canvas.lv-none .face-side { background: #2f6a4a; }
+    .canvas.lv-err { --bg: #444; }
+    .canvas.lv-err .face-side { background: #444; }
+  </style>
+</head>
+<body>
+  <div class="canvas lv-ts" id="stage">
+    <!-- 左 128×192 -->
+    <section class="face face-side" id="faceL" aria-label="左面">
+      <div class="top"><div class="top-label" id="lTop">台風</div></div>
+      <div class="body">
+        <div class="num-big" id="lNum">—</div>
+        <div class="num-unit" id="lUnit">号</div>
+        <div class="cat-pill" id="lCat">接続中</div>
+      </div>
+      <div class="foot"><span class="clock" id="lClock">--:--</span></div>
+    </section>
+
+    <!-- 正面 384×192：進路図 -->
+    <section class="face face-front" id="faceC" aria-label="正面">
+      <div class="map-wrap"><div id="map"></div></div>
+      <div class="map-chrome">
+        <div>
+          <div class="map-title" id="cTitle">台風進路</div>
+          <div class="map-meta" id="cMeta">気象庁へ接続中…</div>
+        </div>
+        <div class="map-badge" id="cBadge">接続中</div>
+      </div>
+      <div class="map-foot">
+        <span id="cFootL">進路・予報円</span>
+        <span>地図：地理院／台風：気象庁</span>
+      </div>
+      <div class="loading-veil" id="veil">図を取得中…</div>
+    </section>
+
+    <!-- 右 128×192 -->
+    <section class="face face-side" id="faceR" aria-label="右面">
+      <div class="top"><div class="top-label" id="rTop">大阪</div></div>
+      <div class="body">
+        <div class="impact-big" id="rImpact">—</div>
+        <div class="impact-sub" id="rSub">確認中</div>
+      </div>
+      <div class="foot" id="rFoot">更新 —</div>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+(function () {
+  'use strict';
+
+  var CFG = {
+    refreshMs: 5 * 60 * 1000,
+    /* 寄り ↔ 日本全体（位置が分かる引き）の切替間隔 */
+    viewMs: 8 * 1000,
+    osaka: [34.676135, 135.506744],
+    /* 概観枠：沖縄〜北海道（これより広げない） */
+    japanSW: [24.2, 123.0],
+    japanNE: [45.6, 145.8],
+    /* この距離内なら台風も枠に含める（度）。遠い場合は日本列島のみ */
+    overviewStormPadDeg: 6,
+    jamBase: 'https://www.jma.go.jp/bosai/typhoon/data'
+  };
+
+  var storms = [];
+  var idx = 0;
+  /* 'closeup' = ピンポイント寄せ / 'overview' = 日本との位置が分かる引き */
+  var viewMode = 'closeup';
+  var rotateTimer = null;
+  var map = null;
+  var layers = null;
+  var firstLoadDone = false;
+  var lastFitKey = '';
+  var overviewLine = null;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function tickClock() {
+    var d = new Date();
+    var el = document.getElementById('lClock');
+    if (el) el.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  function fmtIssueShort(iso) {
+    if (!iso) return '—';
+    var m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return '—';
+    return Number(m[2]) + '/' + Number(m[3]) + ' ' + m[4] + ':' + m[5];
+  }
+
+  function fmtValid(iso) {
+    if (!iso) return '—';
+    var m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return '—';
+    return Number(m[3]) + '日' + Number(m[4]) + '時';
+  }
+
+  function typhoonNo(num) {
+    var s = String(num || '');
+    if (/^\d{4}$/.test(s)) return String(Number(s.slice(2)));
+    if (/^\d+$/.test(s)) return String(Number(s));
+    return '';
+  }
+
+  function stormTitle(s) {
+    var no = typhoonNo(s.id);
+    var catJp = (s.analysis && s.analysis.category && s.analysis.category.jp) ||
+      (s.category && s.category.jp) || '';
+    if (no) {
+      return '第' + no + '号' + (s.nameJp ? '「' + s.nameJp + '」' : '');
+    }
+    return (catJp || '熱帯低気圧') + (s.nameJp ? '「' + s.nameJp + '」' : '');
+  }
+
+  /** 左面：号数があれば号、なければ中心気圧(hPa) */
+  function leftFace(s) {
+    var no = typhoonNo(s.id);
+    if (no) return { num: no, unit: '号', hpa: false };
+    var press = s.analysis && s.analysis.pressure;
+    if (press != null && String(press) !== '' && String(press) !== '-') {
+      return { num: String(press), unit: 'hPa', hpa: true };
+    }
+    return { num: '—', unit: '', hpa: false };
+  }
+
+  function catClass(en, jp) {
+    var e = (en || '').toUpperCase();
+    if (e === 'TY' || e === 'STY') return 'ty';
+    if (e === 'TS' || e === 'STS') return 'ts';
+    if (e === 'TD') return 'td';
+    if (e === 'LOW' || (jp && jp.indexOf('温帯') >= 0)) return 'low';
+    return 'td';
+  }
+
+  function stageLevel(list) {
+    if (!list.length) return 'none';
+    var rank = 0;
+    list.forEach(function (s) {
+      var e = ((s.analysis && s.analysis.category && s.analysis.category.en) ||
+        (s.category && s.category.en) || '').toUpperCase();
+      if (e === 'TY' || e === 'STY') rank = Math.max(rank, 3);
+      else if (e === 'TS' || e === 'STS') rank = Math.max(rank, 2);
+      else if (e === 'TD' || e === 'LOW') rank = Math.max(rank, 1);
+    });
+    if (rank >= 3) return 'ty';
+    if (rank >= 2) return 'ts';
+    if (rank >= 1) return 'td';
+    return 'none';
+  }
+
+  function nearOsaka(lat, lon) {
+    if (lat == null || lon == null) return false;
+    return lat >= 28 && lat <= 40 && lon >= 125 && lon <= 142;
+  }
+
+  function osakaImpact(storm) {
+    if (!storm) return { big: 'なし', sub: '発表なし' };
+    var a = storm.analysis || {};
+    var pos = a.position && a.position.deg;
+    if (pos && nearOsaka(pos[0], pos[1]) && (a.location || '').indexOf('大阪') >= 0) {
+      return { big: '注意', sub: '近傍の動向を確認' };
+    }
+    var toJapanSea = (storm.forecasts || []).some(function (f) {
+      return f.location && f.location.indexOf('日本海') >= 0;
+    });
+    var cat = (a.category && a.category.jp) || '';
+    if (toJapanSea) return { big: '接近なし', sub: '日本海方面へ' };
+    if (cat.indexOf('熱帯') >= 0) return { big: '影響小', sub: '遠方の熱帯低気圧' };
+    return { big: '接近なし', sub: '大阪へ直接接近なし' };
+  }
+
+  function fetchJson(url, ms) {
+    ms = ms || 8000;
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = null;
+    if (ctrl) {
+      timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, ms);
+    }
+    return fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      .then(function (r) {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .finally(function () {
+        if (timer) clearTimeout(timer);
+      });
+  }
+
+  function asTargetList(targets) {
+    if (Array.isArray(targets)) return targets;
+    if (targets && targets.tropicalCyclone) return [targets];
+    return [];
+  }
+
+  function parseStorm(spec, forecast, meta) {
+    var title = (spec || []).find(function (x) { return x.part === 'title'; }) || {};
+    var analysis = (spec || []).find(function (x) {
+      return x.part && x.part.en === 'Analysis';
+    }) || null;
+    var forecasts = (spec || []).filter(function (x) {
+      return x.part && x.part.en && String(x.part.en).indexOf('Forecast') === 0;
+    });
+    var track = null;
+    (forecast || []).forEach(function (p) {
+      if (p.track) track = p.track;
+    });
+    return {
+      id: title.typhoonNumber || '',
+      tcId: (meta && meta.tropicalCyclone) || '',
+      nameJp: (title.name && title.name.jp) || '',
+      nameEn: (title.name && title.name.en) || '',
+      category: title.category || (analysis && analysis.category) || {},
+      issue: title.issue && title.issue.JST,
+      analysis: analysis,
+      forecasts: forecasts,
+      track: track
+    };
+  }
+
+  function initMap() {
+    if (typeof L === 'undefined') {
+      throw new Error('Leaflet 未読込');
+    }
+    map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      touchZoom: false,
+      /* 切替時の黒フラッシュ防止 */
+      zoomAnimation: false,
+      fadeAnimation: false,
+      markerZoomAnimation: false,
+      inertia: false
+    }).setView([36, 136], 5);
+
+    L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      maxNativeZoom: 18,
+      className: 'basemap-gray',
+      keepBuffer: 6,
+      updateWhenIdle: false,
+      updateWhenZooming: false
+    }).addTo(map);
+
+    L.marker(CFG.osaka, {
+      interactive: false,
+      icon: L.divIcon({
+        className: '',
+        html: '<div class="osaka-pin"></div>',
+        iconSize: [10, 10],
+        iconAnchor: [5, 5]
+      })
+    }).addTo(map);
+    L.marker(CFG.osaka, {
+      interactive: false,
+      icon: L.divIcon({
+        className: 'osaka-label',
+        html: '<div>大阪</div>',
+        iconSize: [32, 14],
+        iconAnchor: [-4, 7]
+      })
+    }).addTo(map);
+
+    layers = L.layerGroup().addTo(map);
+    setTimeout(function () {
+      if (map) map.invalidateSize(false);
+    }, 80);
+  }
+
+  function safeFitJapan() {
+    if (!map) return;
+    try {
+      map.fitBounds([CFG.japanSW, CFG.japanNE], {
+        animate: false,
+        padding: [4, 4],
+        paddingTopLeft: [2, 20],
+        paddingBottomRight: [2, 16],
+        maxZoom: 6
+      });
+    } catch (e) {
+      map.setView([36, 136], 5, { animate: false });
+    }
+  }
+
+  function drawStorm(storm, highlight, compact) {
+    var color = highlight ? '#ffd166' : '#ff6b6b';
+    var weight = highlight ? 3 : 2;
+
+    /* 非注目は中心点だけ（他台風の長い進路で画面が広がって見えるのを防ぐ） */
+    if (compact && !highlight) {
+      var a0 = storm.analysis;
+      if (a0 && a0.position && a0.position.deg) {
+        layers.addLayer(L.circleMarker([a0.position.deg[0], a0.position.deg[1]], {
+          radius: 4,
+          color: '#9aa7b8',
+          weight: 1,
+          fillColor: '#9aa7b8',
+          fillOpacity: 0.7,
+          interactive: false
+        }));
+      }
+      return;
+    }
+
+    if (storm.track) {
+      var pre = (storm.track.preTyphoon || []).map(function (p) { return [p[0], p[1]]; });
+      var ty = (storm.track.typhoon || []).map(function (p) { return [p[0], p[1]]; });
+      if (pre.length > 1) {
+        layers.addLayer(L.polyline(pre, {
+          color: '#9aa7b8', weight: 1.2, opacity: 0.7, dashArray: '3 3', interactive: false
+        }));
+      }
+      if (ty.length > 1) {
+        layers.addLayer(L.polyline(ty, {
+          color: color, weight: weight, opacity: 0.95, interactive: false
+        }));
+      }
+    }
+
+    var a = storm.analysis;
+    if (a && a.position && a.position.deg) {
+      var latlng = [a.position.deg[0], a.position.deg[1]];
+      var isTd = (a.category && a.category.en) === 'TD' ||
+        (a.category && a.category.jp && a.category.jp.indexOf('熱帯低気圧') >= 0);
+      layers.addLayer(L.marker(latlng, {
+        interactive: false,
+        icon: L.divIcon({
+          className: '',
+          html: '<div class="' + (isTd ? 'td-icon' : 'ty-icon') + '"></div>',
+          iconSize: isTd ? [14, 14] : [22, 22],
+          iconAnchor: isTd ? [7, 7] : [11, 11]
+        })
+      }));
+
+      if (a.galeWarning && a.galeWarning.length) {
+        var maxKm = 0;
+        a.galeWarning.forEach(function (g) {
+          if (g.range && g.range.km > maxKm) maxKm = g.range.km;
+        });
+        if (maxKm > 0) {
+          layers.addLayer(L.circle(latlng, {
+            radius: maxKm * 1000,
+            color: color,
+            weight: 1,
+            opacity: 0.5,
+            fillColor: color,
+            fillOpacity: 0.06,
+            interactive: false
+          }));
+        }
+      }
+    }
+
+    var path = [];
+    if (a && a.position && a.position.deg) path.push([a.position.deg[0], a.position.deg[1]]);
+    (storm.forecasts || []).forEach(function (f) {
+      if (!f.position || !f.position.deg) return;
+      var ll = [f.position.deg[0], f.position.deg[1]];
+      path.push(ll);
+      layers.addLayer(L.circleMarker(ll, {
+        radius: 4,
+        color: '#5cc8ff',
+        weight: 2,
+        fillColor: '#0b1220',
+        fillOpacity: 1,
+        interactive: false
+      }));
+      if (f.probabilityCircleRadius && f.probabilityCircleRadius.km) {
+        layers.addLayer(L.circle(ll, {
+          radius: f.probabilityCircleRadius.km * 1000,
+          color: '#5cc8ff',
+          weight: 1,
+          opacity: 0.4,
+          fillColor: '#5cc8ff',
+          fillOpacity: 0.05,
+          dashArray: '4 4',
+          interactive: false
+        }));
+      }
+    });
+    if (path.length > 1) {
+      layers.addLayer(L.polyline(path, {
+        color: '#5cc8ff', weight: 2, opacity: 0.85, dashArray: '5 5', interactive: false
+      }));
+    }
+  }
+
+  function collectCloseupBounds(focus) {
+    var bounds = [];
+    if (!focus) return bounds;
+    if (focus.analysis && focus.analysis.position && focus.analysis.position.deg) {
+      bounds.push([focus.analysis.position.deg[0], focus.analysis.position.deg[1]]);
+    }
+    (focus.forecasts || []).forEach(function (f) {
+      if (f.position && f.position.deg) {
+        bounds.push([f.position.deg[0], f.position.deg[1]]);
+      }
+    });
+    if (focus.track && focus.track.typhoon && focus.track.typhoon.length) {
+      focus.track.typhoon.slice(-16).forEach(function (p) {
+        bounds.push([p[0], p[1]]);
+      });
+    }
+    if (focus.track && focus.track.preTyphoon && focus.track.preTyphoon.length) {
+      focus.track.preTyphoon.slice(-4).forEach(function (p) {
+        bounds.push([p[0], p[1]]);
+      });
+    }
+    return bounds;
+  }
+
+  /** 寄り表示でも最低限の広さ（陸地・海が分かる）を確保 */
+  function closeupExtent(points) {
+    if (!points || !points.length) return null;
+    var minLat = points[0][0];
+    var maxLat = points[0][0];
+    var minLon = points[0][1];
+    var maxLon = points[0][1];
+    points.forEach(function (p) {
+      minLat = Math.min(minLat, p[0]);
+      maxLat = Math.max(maxLat, p[0]);
+      minLon = Math.min(minLon, p[1]);
+      maxLon = Math.max(maxLon, p[1]);
+    });
+    /* 約500〜700km 相当（緯度・経度でざっくり） */
+    var minLatSpan = 4.5;
+    var minLonSpan = 5.5;
+    var latSpan = maxLat - minLat;
+    var lonSpan = maxLon - minLon;
+    var latPad = Math.max(minLatSpan - latSpan, 0) / 2;
+    var lonPad = Math.max(minLonSpan - lonSpan, 0) / 2;
+    return [
+      [minLat - latPad, minLon - lonPad],
+      [maxLat + latPad, maxLon + lonPad]
+    ];
+  }
+
+  function nearJapanFrame(lat, lon) {
+    var pad = CFG.overviewStormPadDeg;
+    return lat >= (CFG.japanSW[0] - pad) && lat <= (CFG.japanNE[0] + pad) &&
+      lon >= (CFG.japanSW[1] - pad) && lon <= (CFG.japanNE[1] + pad);
+  }
+
+  /** 沖縄〜北海道が主。近傍の台風だけ追加（遠方で全体すぎるのを防ぐ） */
+  function collectOverviewBounds(focus) {
+    var bounds = [CFG.japanSW, CFG.japanNE, CFG.osaka];
+    if (focus && focus.analysis && focus.analysis.position && focus.analysis.position.deg) {
+      var lat = focus.analysis.position.deg[0];
+      var lon = focus.analysis.position.deg[1];
+      if (nearJapanFrame(lat, lon)) {
+        bounds.push([lat, lon]);
+        (focus.forecasts || []).forEach(function (f) {
+          if (f.position && f.position.deg && nearJapanFrame(f.position.deg[0], f.position.deg[1])) {
+            bounds.push([f.position.deg[0], f.position.deg[1]]);
+          }
+        });
+      }
+    }
+    return bounds;
+  }
+
+  function boundsKey(focusIdx, mode) {
+    var focus = (focusIdx != null && storms[focusIdx]) ? storms[focusIdx] : null;
+    var id = focus ? focus.id : 'none';
+    var a = focus && focus.analysis && focus.analysis.position && focus.analysis.position.deg;
+    return mode + ':' + id + '@' + (a ? a[0] + ',' + a[1] : '');
+  }
+
+  /**
+   * closeup = ピンポイント寄り / overview = 日本での位置が分かる引き
+   * animate オフで暗転防止
+   */
+  function fitToStorms(list, focusIdx, force, mode) {
+    if (!map) return;
+    mode = mode || viewMode;
+    var key = boundsKey(focusIdx, mode);
+    if (!force && key && key === lastFitKey) return;
+    lastFitKey = key;
+
+    var focus = (focusIdx != null && list[focusIdx]) ? list[focusIdx] : null;
+
+    if (mode === 'overview') {
+      map.fitBounds(collectOverviewBounds(focus), {
+        animate: false,
+        padding: [4, 4],
+        paddingTopLeft: [2, 20],
+        paddingBottomRight: [2, 16],
+        /* 沖縄〜北海道が正面に収まる程度に寄せる */
+        maxZoom: 6,
+        minZoom: 4
+      });
+      return;
+    }
+
+    var bounds = collectCloseupBounds(focus);
+    var extent = closeupExtent(bounds);
+    if (extent) {
+      map.fitBounds(extent, {
+        animate: false,
+        padding: [16, 16],
+        paddingTopLeft: [6, 26],
+        paddingBottomRight: [6, 22],
+        /* 寄りすぎ防止（白地図・意味不明な拡大を避ける） */
+        maxZoom: 5
+      });
+      return;
+    }
+
+    if (focus && focus.analysis && focus.analysis.position && focus.analysis.position.deg) {
+      var lat = focus.analysis.position.deg[0];
+      var lon = focus.analysis.position.deg[1];
+      map.setView([lat, lon], 5, { animate: false });
+      return;
+    }
+
+    map.setView([34.7, 135.5], 5, { animate: false });
+  }
+
+  function paint(i, opts) {
+    opts = opts || {};
+    var stage = document.getElementById('stage');
+    stage.className = 'canvas lv-' + stageLevel(storms);
+    var mode = opts.viewMode || viewMode;
+
+    if (layers) layers.clearLayers();
+    overviewLine = null;
+
+    if (!storms.length) {
+      document.getElementById('lTop').textContent = '台風';
+      document.getElementById('lNum').textContent = '—';
+      document.getElementById('lUnit').textContent = '号';
+      document.getElementById('lCat').textContent = '発表なし';
+      document.getElementById('lCat').className = 'cat-pill calm';
+      document.getElementById('cTitle').textContent = '台風進路 · 日本全体';
+      document.getElementById('cMeta').textContent = '発表中の台風・熱帯低気圧なし';
+      document.getElementById('cBadge').textContent = 'なし';
+      document.getElementById('cBadge').className = 'map-badge calm';
+      document.getElementById('cFootL').textContent = '気象庁発表なし · 緑＝大阪';
+      document.getElementById('rImpact').textContent = 'なし';
+      document.getElementById('rSub').textContent = '平常';
+      document.getElementById('rFoot').textContent =
+        '更新 ' + pad(new Date().getHours()) + ':' + pad(new Date().getMinutes());
+      if (opts.refit !== false) {
+        lastFitKey = '';
+        safeFitJapan();
+      }
+      return;
+    }
+
+    var s = storms[((i % storms.length) + storms.length) % storms.length];
+    var a = s.analysis || {};
+    var cat = a.category || s.category || {};
+    var cc = catClass(cat.en, cat.jp);
+    var isOverview = mode === 'overview';
+
+    document.getElementById('lTop').textContent = storms.length > 1
+      ? ('台風 ' + (i + 1) + '/' + storms.length)
+      : '台風';
+    var face = leftFace(s);
+    document.getElementById('lNum').textContent = face.num;
+    document.getElementById('lNum').className = 'num-big' + (face.hpa ? ' num-hpa' : '');
+    document.getElementById('lUnit').textContent = face.unit;
+    document.getElementById('lUnit').className = 'num-unit' + (face.hpa ? ' unit-hpa' : '');
+    document.getElementById('lCat').textContent = cat.jp || '—';
+    document.getElementById('lCat').className = 'cat-pill ' + (cc === 'ts' || cc === 'ty' ? '' : cc);
+
+    document.getElementById('cTitle').textContent =
+      stormTitle(s) + (isOverview ? ' · 日本全体' : ' · 周辺');
+    document.getElementById('cMeta').textContent =
+      (a.location || '—') + ' · 実況 ' + fmtValid(a.validtime && a.validtime.JST) +
+      (a.pressure ? ' · ' + a.pressure + 'hPa' : '');
+    document.getElementById('cBadge').textContent = isOverview ? '全体' : (cat.jp || '—');
+    document.getElementById('cBadge').className = 'map-badge' + (isOverview || cc === 'td' || cc === 'low' ? ' calm' : '');
+    document.getElementById('cFootL').textContent = isOverview
+      ? '日本との位置関係 · 緑＝大阪'
+      : ('発表 ' + fmtIssueShort(s.issue) + ' · 赤＝進路 青＝予報');
+
+    var imp = osakaImpact(s);
+    document.getElementById('rImpact').textContent = imp.big;
+    document.getElementById('rSub').textContent = isOverview ? '位置確認' : imp.sub;
+    document.getElementById('rFoot').textContent = '更新 ' + fmtIssueShort(s.issue).replace(/^\d+\//, '');
+
+    storms.forEach(function (st, j) { drawStorm(st, j === i, true); });
+
+    if (isOverview && a.position && a.position.deg) {
+      overviewLine = L.polyline([CFG.osaka, [a.position.deg[0], a.position.deg[1]]], {
+        color: '#3dd68c',
+        weight: 1.5,
+        opacity: 0.75,
+        dashArray: '4 4',
+        interactive: false
+      });
+      layers.addLayer(overviewLine);
+    }
+
+    if (opts.refit !== false) {
+      fitToStorms(storms, i, !!opts.forceFit, mode);
+    }
+  }
+
+  /** 寄り → 全体 →（次の台風の）寄り … と切替 */
+  function startRotate() {
+    if (rotateTimer) clearInterval(rotateTimer);
+    rotateTimer = null;
+    if (!storms.length) return;
+    rotateTimer = setInterval(function () {
+      if (viewMode === 'closeup') {
+        viewMode = 'overview';
+      } else {
+        viewMode = 'closeup';
+        if (storms.length > 1) idx = (idx + 1) % storms.length;
+      }
+      paint(idx, { refit: true, forceFit: true, viewMode: viewMode });
+    }, CFG.viewMs);
+  }
+
+  function setVeil(on) {
+    var veil = document.getElementById('veil');
+    if (!veil) return;
+    veil.classList.toggle('show', !!on);
+  }
+
+  function load() {
+    var veilTimer = setTimeout(function () {
+      if (!firstLoadDone) setVeil(true);
+    }, 450);
+    var watchdog = setTimeout(function () {
+      setVeil(false);
+      firstLoadDone = true;
+      if (!storms.length) {
+        document.getElementById('cMeta').textContent = '取得が遅い／失敗の可能性';
+        document.getElementById('lCat').textContent = '再試行中';
+        document.getElementById('cBadge').textContent = '待機';
+        safeFitJapan();
+      }
+    }, 5000);
+
+    return fetchJson(CFG.jamBase + '/targetTc.json')
+      .then(function (targets) {
+        var list = asTargetList(targets);
+        if (!list.length) {
+          storms = [];
+          if (rotateTimer) {
+            clearInterval(rotateTimer);
+            rotateTimer = null;
+          }
+          paint(0, { refit: true, forceFit: true });
+          return;
+        }
+        return Promise.all(list.map(function (t) {
+          var id = t.tropicalCyclone;
+          return Promise.all([
+            fetchJson(CFG.jamBase + '/' + id + '/specifications.json'),
+            fetchJson(CFG.jamBase + '/' + id + '/forecast.json').catch(function () { return []; })
+          ]).then(function (pair) {
+            return parseStorm(pair[0], pair[1], t);
+          });
+        })).then(function (parsed) {
+          storms = parsed;
+          if (idx >= storms.length) idx = 0;
+          viewMode = 'closeup';
+          paint(idx, { refit: true, forceFit: true, viewMode: viewMode });
+          startRotate();
+        });
+      })
+      .catch(function (err) {
+        console.error(err);
+        document.getElementById('stage').className = 'canvas lv-err';
+        document.getElementById('cTitle').textContent = '取得失敗';
+        document.getElementById('cMeta').textContent = 'ネットワークを確認して再読込';
+        document.getElementById('lCat').textContent = 'エラー';
+        document.getElementById('cBadge').textContent = '失敗';
+        document.getElementById('rImpact').textContent = '—';
+        document.getElementById('rSub').textContent = '再取得待ち';
+        safeFitJapan();
+      })
+      .finally(function () {
+        clearTimeout(veilTimer);
+        clearTimeout(watchdog);
+        setVeil(false);
+        firstLoadDone = true;
+      });
+  }
+
+  try {
+    initMap();
+  } catch (e) {
+    console.error(e);
+    document.getElementById('cTitle').textContent = '地図初期化失敗';
+    document.getElementById('cMeta').textContent = String(e && e.message ? e.message : e);
+    document.getElementById('lCat').textContent = 'エラー';
+    document.getElementById('cBadge').textContent = '失敗';
+    setVeil(false);
+    firstLoadDone = true;
+  }
+  load();
+  setInterval(load, CFG.refreshMs);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+      if (map) map.invalidateSize(false);
+      load();
+    }
+  });
+})();
+  </script>
+</body>
+</html>
