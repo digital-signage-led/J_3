@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=640, height=192, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="robots" content="noindex" />
   <title>大阪 雨雲レーダー 640×192｜自販機サイネージ</title>
   <script>
@@ -83,17 +83,22 @@
     }
     body,
     body.native-640 {
-      position: absolute !important;
+      position: fixed !important;
       left: 0 !important;
       top: 0 !important;
+      right: auto !important;
+      bottom: auto !important;
     }
     #stage,
     body.native-640 #stage {
-      position: absolute !important;
+      position: fixed !important;
       left: 0 !important;
       top: 0 !important;
-      transform: none !important;
+      width: 640px !important;
+      height: 192px !important;
       margin: 0 !important;
+      transform-origin: 0 0 !important;
+      /* transform は JS が DPI/枠補正で制御（none !important にしない） */
     }
 
     #stage {
@@ -209,11 +214,13 @@
       justify-content: center;
     }
     #faceRight .side-foot {
-      height: auto;
-      min-height: 54px;
-      padding: 3px 5px 4px;
+      height: 48px;
+      min-height: 48px;
+      max-height: 48px;
+      padding: 2px 5px 3px;
       justify-content: flex-start;
-      gap: 2px;
+      gap: 1px;
+      overflow: hidden;
     }
     .clock-lg {
       font-size: 20px;
@@ -345,6 +352,7 @@
       position: absolute;
       left: 0; right: 0; bottom: 0;
       height: 22px;
+      z-index: 20;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -636,20 +644,57 @@
 
   function fitStage() {
     var stage = document.getElementById('stage');
-    /* 常に原点 (x=0, y=0)。preview 時のみ拡大 */
-    stage.style.position = 'absolute';
     stage.style.left = '0';
     stage.style.top = '0';
     stage.style.marginLeft = '0';
     stage.style.marginTop = '0';
     if (native) {
-      stage.style.transform = 'none';
+      /* DPIや枠で inner が 640×192 未満のとき、切らずに収める */
+      var sx = window.innerWidth / CFG.width;
+      var sy = window.innerHeight / CFG.height;
+      var s = Math.min(sx, sy);
+      if (!isFinite(s) || s <= 0) s = 1;
+      if (s > 1) s = 1;
+      stage.style.transform = (Math.abs(s - 1) < 0.005) ? 'none' : ('scale(' + s + ')');
       return;
     }
-    var s = Math.min(window.innerWidth / CFG.width, window.innerHeight / CFG.height);
-    stage.style.transform = 'scale(' + s + ')';
+    var sp = Math.min(window.innerWidth / CFG.width, window.innerHeight / CFG.height);
+    stage.style.transform = 'scale(' + sp + ')';
   }
+
+  /* サイネージ: 表示領域を 640×192 に矯正（下バー欠け・文字ずれ対策） */
+  function ensureNativeViewport(done) {
+    if (!native) {
+      if (done) done();
+      return;
+    }
+    var tries = 0;
+    function tick() {
+      tries += 1;
+      try { window.moveTo(0, 0); } catch (e1) {}
+      var dw = CFG.width - window.innerWidth;
+      var dh = CFG.height - window.innerHeight;
+      if ((dw !== 0 || dh !== 0) && tries <= 8) {
+        try {
+          window.resizeTo(window.outerWidth + dw, window.outerHeight + dh);
+          window.moveTo(0, 0);
+        } catch (e2) {}
+        fitStage();
+        setTimeout(tick, 80);
+        return;
+      }
+      fitStage();
+      if (done) done();
+    }
+    tick();
+  }
+
   fitStage();
+  ensureNativeViewport(function () {
+    fixMapSize();
+    setTimeout(fixMapSize, 200);
+    setTimeout(fixMapSize, 600);
+  });
   window.addEventListener('resize', function () {
     fitStage();
     fixMapSize();

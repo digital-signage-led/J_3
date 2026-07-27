@@ -4,6 +4,7 @@ cd /d "%~dp0"
 REM LED signage: 640x192 at screen (0,0). Capture that rectangle.
 set "PORT=8765"
 set "URL=http://127.0.0.1:%PORT%/?signage=1"
+set "PROFILE=%LOCALAPPDATA%\OsakaRainRadarSignage"
 set "EDGE86=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
 set "EDGE64=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
 set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
@@ -53,5 +54,18 @@ if not defined BROWSER (
   exit /b 0
 )
 
-start "" "%BROWSER%" --app="%URL%" --window-position=0,0 --window-size=640,192 --force-device-scale-factor=1 --high-dpi-support=1 --disable-features=TranslateUI --disable-session-crashed-bubble --no-first-run
+REM Dedicated profile so DPI=1 flags always apply (shared Edge ignores them).
+REM Oversize a bit for window chrome; page JS then locks inner size to 640x192.
+start "" "%BROWSER%" ^
+  --user-data-dir="%PROFILE%" ^
+  --app="%URL%" ^
+  --window-position=0,0 ^
+  --window-size=640,220 ^
+  --force-device-scale-factor=1 ^
+  --high-dpi-support=1 ^
+  --disable-features=TranslateUI ^
+  --disable-session-crashed-bubble ^
+  --no-first-run ^
+  --disable-pinch ^
+  --overscroll-history-navigation=0
 exit /b 0
