@@ -122,8 +122,13 @@
       width: var(--face);
       flex: 0 0 var(--face);
       background: linear-gradient(180deg, #152238 0%, #0c1420 100%);
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: 36px 1fr 40px;
+      grid-template-columns: 100%;
+    }
+    #faceRight.face-side {
+      /* スクショと同じ：本文＋凡例／下にアメダス＋出典 */
+      grid-template-rows: 36px 1fr 58px;
     }
     .face-front {
       width: var(--front);
@@ -138,7 +143,7 @@
       height: 36px;
       padding: 4px 8px 0;
       border-bottom: 1px solid rgba(255,255,255,.08);
-      flex-shrink: 0;
+      overflow: hidden;
     }
     .side-kicker {
       font-size: 9px;
@@ -154,7 +159,6 @@
       margin-top: 1px;
     }
     .side-body {
-      flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -162,6 +166,7 @@
       padding: 4px 6px;
       text-align: center;
       min-height: 0;
+      overflow: hidden;
     }
     .status-pill {
       display: inline-block;
@@ -208,19 +213,16 @@
       height: 40px;
       padding: 4px 8px;
       border-top: 1px solid rgba(255,255,255,.08);
-      flex-shrink: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      overflow: hidden;
     }
     #faceRight .side-foot {
-      height: 48px;
-      min-height: 48px;
-      max-height: 48px;
-      padding: 2px 5px 3px;
+      height: 58px;
+      padding: 4px 6px 5px;
       justify-content: flex-start;
-      gap: 1px;
-      overflow: hidden;
+      gap: 2px;
     }
     .clock-lg {
       font-size: 20px;
@@ -320,6 +322,7 @@
       inset: 0;
       z-index: 10;
       pointer-events: none;
+      overflow: hidden;
     }
     .front-top {
       position: absolute;
@@ -348,6 +351,7 @@
     .badge.now  { background: var(--now); color: #3a2c00; }
     .badge.fc   { background: rgba(92,200,255,.24); color: var(--fc); border: 1px solid rgba(92,200,255,.5); }
 
+    /* 下バー：常に正面下端に固定（サイネージでも欠けない） */
     .front-bottom {
       position: absolute;
       left: 0; right: 0; bottom: 0;
@@ -357,7 +361,8 @@
       align-items: center;
       gap: 8px;
       padding: 0 8px;
-      background: linear-gradient(0deg, rgba(8,12,20,.82), transparent);
+      box-sizing: border-box;
+      background: rgba(8,12,20,.88);
     }
     .timeline {
       flex: 1;
@@ -365,26 +370,33 @@
       border-radius: 999px;
       background: rgba(255,255,255,.18);
       position: relative;
-      overflow: hidden;
+      overflow: visible;
     }
     .timeline > i {
       position: absolute; left: 0; top: 0; bottom: 0; width: 0;
       background: linear-gradient(90deg, #3dd68c, #5cc8ff);
       border-radius: inherit;
+      overflow: hidden;
     }
     .timeline-mark {
       position: absolute; top: -3px; width: 2px; height: 11px;
       background: var(--now);
       transform: translateX(-1px);
+      z-index: 2;
     }
     .tl-labels {
       position: absolute;
       left: 8px; right: 8px; bottom: 22px;
+      height: 12px;
       display: flex;
+      align-items: flex-end;
       justify-content: space-between;
       font-size: 8px;
+      line-height: 1;
       color: rgba(210,220,235,.85);
       text-shadow: 0 1px 2px #000;
+      z-index: 20;
+      pointer-events: none;
     }
     .amedas-label { background: transparent !important; border: none !important; }
     .amedas-label > div {
@@ -398,26 +410,33 @@
     .amedas-label > div.heavy { color: #ffd166; }
 
     /* ===== 右面 ===== */
+    #faceRight .side-body {
+      justify-content: center;
+      padding: 6px 4px 4px;
+      gap: 0;
+    }
     .guide-line {
       font-size: 12px;
       font-weight: 800;
-      line-height: 1.25;
+      line-height: 1.3;
       color: #e8eef6;
       text-align: center;
-      padding: 0 6px;
+      padding: 0 4px;
+      max-width: 100%;
     }
     .guide-sub {
-      margin-top: 6px;
+      margin-top: 5px;
       font-size: 10px;
       color: var(--muted);
       line-height: 1.3;
       text-align: center;
-      padding: 0 6px;
+      padding: 0 4px;
     }
     .legend-mini {
       margin-top: 8px;
       width: 100%;
       padding: 0 8px;
+      flex-shrink: 0;
     }
     .legend-mini .scale {
       display: flex;
@@ -440,6 +459,10 @@
       font-weight: 700;
       color: #d5deea;
       font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .amedas-foot span {
       display: block;
@@ -447,6 +470,9 @@
       color: var(--muted);
       font-weight: 600;
       margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .src-credit {
       position: absolute;
@@ -468,7 +494,7 @@
       font-weight: 600;
       color: var(--muted);
       line-height: 1.2;
-      text-align: center;
+      text-align: left;
       padding: 0;
       white-space: normal;
       word-break: keep-all;
@@ -648,21 +674,34 @@
     stage.style.top = '0';
     stage.style.marginLeft = '0';
     stage.style.marginTop = '0';
+    stage.style.transformOrigin = '0 0';
     if (native) {
-      /* DPIや枠で inner が 640×192 未満のとき、切らずに収める */
-      var sx = window.innerWidth / CFG.width;
-      var sy = window.innerHeight / CFG.height;
-      var s = Math.min(sx, sy);
-      if (!isFinite(s) || s <= 0) s = 1;
-      if (s > 1) s = 1;
-      stage.style.transform = (Math.abs(s - 1) < 0.005) ? 'none' : ('scale(' + s + ')');
+      /*
+       * LED取り込みは画面の物理ピクセル (0,0)-(640,192)。
+       * Windows拡大 (125%/150%) だと CSS640px が物理800px になり「大きく」見える。
+       * scale(1/dpr) で物理640×192に合わせる。
+       */
+      var dpr = window.devicePixelRatio || 1;
+      if (!isFinite(dpr) || dpr <= 0) dpr = 1;
+      var s = 1 / dpr;
+      stage.style.transform = (Math.abs(dpr - 1) < 0.02) ? 'none' : ('scale(' + s + ')');
+      var cssW = Math.round(CFG.width / dpr);
+      var cssH = Math.round(CFG.height / dpr);
+      document.documentElement.style.width = cssW + 'px';
+      document.documentElement.style.height = cssH + 'px';
+      document.body.style.width = cssW + 'px';
+      document.body.style.height = cssH + 'px';
       return;
     }
+    document.documentElement.style.width = '';
+    document.documentElement.style.height = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
     var sp = Math.min(window.innerWidth / CFG.width, window.innerHeight / CFG.height);
     stage.style.transform = 'scale(' + sp + ')';
   }
 
-  /* サイネージ: 表示領域を 640×192 に矯正（下バー欠け・文字ずれ対策） */
+  /* クライアント左上を画面 (0,0) に合わせ、物理 640×192 に見えるサイズにする */
   function ensureNativeViewport(done) {
     if (!native) {
       if (done) done();
@@ -671,16 +710,23 @@
     var tries = 0;
     function tick() {
       tries += 1;
-      try { window.moveTo(0, 0); } catch (e1) {}
-      var dw = CFG.width - window.innerWidth;
-      var dh = CFG.height - window.innerHeight;
-      if ((dw !== 0 || dh !== 0) && tries <= 8) {
-        try {
-          window.resizeTo(window.outerWidth + dw, window.outerHeight + dh);
-          window.moveTo(0, 0);
-        } catch (e2) {}
-        fitStage();
-        setTimeout(tick, 80);
+      var dpr = window.devicePixelRatio || 1;
+      if (!isFinite(dpr) || dpr <= 0) dpr = 1;
+      var cssW = Math.round(CFG.width / dpr);
+      var cssH = Math.round(CFG.height / dpr);
+      try {
+        var chromeX = Math.max(0, window.outerWidth - window.innerWidth);
+        var chromeY = Math.max(0, window.outerHeight - window.innerHeight);
+        window.resizeTo(cssW + chromeX, cssH + chromeY);
+        chromeX = Math.max(0, window.outerWidth - window.innerWidth);
+        chromeY = Math.max(0, window.outerHeight - window.innerHeight);
+        var leftPad = Math.floor(chromeX / 2);
+        window.moveTo(-leftPad, -chromeY);
+      } catch (e1) {}
+      fitStage();
+      var ok = Math.abs(window.innerWidth - cssW) <= 1 && Math.abs(window.innerHeight - cssH) <= 1;
+      if (!ok && tries < 12) {
+        setTimeout(tick, 60);
         return;
       }
       fitStage();
@@ -690,12 +736,26 @@
   }
 
   fitStage();
+  var fixingViewport = false;
   ensureNativeViewport(function () {
     fixMapSize();
     setTimeout(fixMapSize, 200);
     setTimeout(fixMapSize, 600);
   });
   window.addEventListener('resize', function () {
+    if (native) {
+      if (fixingViewport) {
+        fitStage();
+        fixMapSize();
+        return;
+      }
+      fixingViewport = true;
+      ensureNativeViewport(function () {
+        fixMapSize();
+        fixingViewport = false;
+      });
+      return;
+    }
     fitStage();
     fixMapSize();
   });
