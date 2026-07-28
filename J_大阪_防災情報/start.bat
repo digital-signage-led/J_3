@@ -1,12 +1,71 @@
 @echo off
 cd /d "%~dp0"
+
+REM LED signage: 640x192 at screen (0,0). Capture that rectangle.
+REM Same launch pattern as J_大阪アメダス (force-device-scale-factor=1).
+set "PORT=8766"
+set "URL=http://127.0.0.1:%PORT%/?signage=1"
+set "PROFILE=%LOCALAPPDATA%\OsakaTyphoonSignage_v1"
+set "EDGE86=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
+set "EDGE64=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+set "CHROMEL=%LocalAppData%\Google\Chrome\Application\chrome.exe"
+set "BROWSER="
+
+if exist "%EDGE86%" set "BROWSER=%EDGE86%"
+if not defined BROWSER if exist "%EDGE64%" set "BROWSER=%EDGE64%"
+if not defined BROWSER if exist "%CHROME%" set "BROWSER=%CHROME%"
+if not defined BROWSER if exist "%CHROMEL%" set "BROWSER=%CHROMEL%"
+
+echo.
+echo  === LED Signage 640x192 Typhoon ===
+echo  Capture: (0,0)-(640,192)
+echo  %URL%
+echo.
+
 where node >nul 2>nul
 if errorlevel 1 (
-  echo Node.js が見つかりません。https://nodejs.org/ からインストールするか、
-  echo 任意の静的 HTTP サーバでこのフォルダを配信してください。
+  echo ERROR: Node.js is required.
   pause
   exit /b 1
 )
-echo Opening http://127.0.0.1:8766/?native640=1
-start "" "http://127.0.0.1:8766/?native640=1"
-node serve.js
+
+for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr ":%PORT% " ^| findstr "LISTENING"') do (
+  taskkill /F /PID %%p >nul 2>nul
+)
+
+start "OsakaTyphoonServe" /MIN node "%~dp0serve.js"
+
+set /a n=0
+:wait
+set /a n+=1
+powershell -NoProfile -Command "if ((Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 '%URL%').StatusCode -eq 200) { exit 0 } else { exit 1 }" >nul 2>nul
+if not errorlevel 1 goto open
+if %n% GEQ 20 (
+  echo ERROR: server did not start on port %PORT%
+  pause
+  exit /b 1
+)
+ping -n 2 127.0.0.1 >nul
+goto wait
+
+:open
+if not defined BROWSER (
+  start "" "%URL%"
+  exit /b 0
+)
+
+REM Dedicated profile so DPI=1 flags always apply.
+start "" "%BROWSER%" ^
+  --user-data-dir="%PROFILE%" ^
+  --app="%URL%" ^
+  --window-position=0,0 ^
+  --window-size=640,192 ^
+  --force-device-scale-factor=1 ^
+  --high-dpi-support=1 ^
+  --disable-features=TranslateUI ^
+  --disable-session-crashed-bubble ^
+  --no-first-run ^
+  --disable-pinch ^
+  --overscroll-history-navigation=0
+exit /b 0

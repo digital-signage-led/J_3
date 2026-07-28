@@ -41,6 +41,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log('台風情報 3面 http://127.0.0.1:' + PORT + '/');
-  console.log('サイネージ実寸 http://127.0.0.1:' + PORT + '/?native640=1');
+  console.log('サイネージ http://127.0.0.1:' + PORT + '/?signage=1');
+  console.log('PC確認   http://127.0.0.1:' + PORT + '/?preview=1');
 });

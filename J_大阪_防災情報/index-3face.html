@@ -2,11 +2,17 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0;url=index.html" />
+  <meta http-equiv="refresh" content="0;url=index.html?signage=1" />
   <title>転送…</title>
-  <script>location.replace('index.html' + location.search + location.hash);</script>
+  <script>
+    var q = location.search || '?signage=1';
+    if (q.indexOf('signage') < 0 && q.indexOf('native640') < 0 && q.indexOf('preview') < 0) {
+      q = (q === '?' || q === '') ? '?signage=1' : (q + '&signage=1');
+    }
+    location.replace('index.html' + q + location.hash);
+  </script>
 </head>
 <body>
-  <p><a href="index.html">index.html</a> へ移動してください。</p>
+  <p><a href="index.html?signage=1">index.html?signage=1</a> へ移動してください。</p>
 </body>
 </html>
