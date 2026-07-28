@@ -4,7 +4,7 @@ cd /d "%~dp0"
 REM LED signage: 640x192 at screen (0,0). Capture that rectangle.
 set "PORT=8765"
 set "URL=http://127.0.0.1:%PORT%/?signage=1"
-set "PROFILE=%LOCALAPPDATA%\OsakaRainRadarSignage_v6"
+set "PROFILE=%LOCALAPPDATA%\OsakaRainRadarSignage_v7"
 set "EDGE86=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
 set "EDGE64=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
 set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"

@@ -81,25 +81,26 @@
       text-size-adjust: 100%;
     }
 
-    /* 原点 (0,0) から 640×192・ずっと固定 */
+    /* サイネージ: 窓全体を使い、下の黒帯（隙間）を作らない */
     html.native-640, body.native-640 {
-      width: 640px !important;
-      height: 192px !important;
-      min-width: 640px !important;
-      min-height: 192px !important;
-      max-width: 640px !important;
-      max-height: 192px !important;
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      max-width: none !important;
+      max-height: none !important;
       margin: 0 !important;
       padding: 0 !important;
       overflow: hidden !important;
+      background: #000 !important;
     }
     body,
     body.native-640 {
       position: fixed !important;
       left: 0 !important;
       top: 0 !important;
-      right: auto !important;
-      bottom: auto !important;
+      right: 0 !important;
+      bottom: 0 !important;
     }
     #stage,
     body.native-640 #stage {
@@ -110,7 +111,6 @@
       height: 192px !important;
       margin: 0 !important;
       transform-origin: 0 0 !important;
-      /* transform は JS が DPI/枠補正で制御（none !important にしない） */
     }
 
     #stage {
@@ -118,6 +118,7 @@
       height: var(--h);
       display: flex;
       flex-direction: row;
+      align-items: stretch;
       overflow: hidden;
       transform-origin: 0 0;
       background: #000;
@@ -126,25 +127,25 @@
     /* 面の座標: 左 x=0 / 正面 x=128 / 右 x=512 */
     .face {
       position: relative;
-      height: 192px;
+      height: 192px !important;
+      min-height: 192px !important;
+      max-height: 192px !important;
       overflow: hidden;
       flex-shrink: 0;
     }
     .face-side {
-      width: var(--face);
-      flex: 0 0 var(--face);
+      width: 128px !important;
+      flex: 0 0 128px;
       background: linear-gradient(180deg, #152238 0%, #0c1420 100%);
-      display: grid;
-      grid-template-rows: 36px 1fr 40px;
-      grid-template-columns: 100%;
+      display: flex;
+      flex-direction: column;
     }
     #faceRight.face-side {
-      /* スクショと同じ：本文＋凡例／下にアメダス＋出典 */
-      grid-template-rows: 36px 1fr 58px;
+      /* right foot is taller */
     }
     .face-front {
-      width: 384px;
-      height: 192px;
+      width: 384px !important;
+      height: 192px !important;
       background: #6a7078;
       position: relative;
       flex: 0 0 384px;
@@ -153,10 +154,12 @@
 
     /* ===== 左面 ===== */
     .side-head {
+      flex: 0 0 36px;
       height: 36px;
       padding: 4px 8px 0;
       border-bottom: 1px solid rgba(255,255,255,.08);
       overflow: hidden;
+      box-sizing: border-box;
     }
     .side-kicker {
       font-size: 9px;
@@ -172,6 +175,7 @@
       margin-top: 1px;
     }
     .side-body {
+      flex: 1 1 auto;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -223,6 +227,7 @@
     }
 
     .side-foot {
+      flex: 0 0 40px;
       height: 40px;
       padding: 4px 8px;
       border-top: 1px solid rgba(255,255,255,.08);
@@ -230,8 +235,10 @@
       flex-direction: column;
       justify-content: center;
       overflow: hidden;
+      box-sizing: border-box;
     }
     #faceRight .side-foot {
+      flex: 0 0 58px;
       height: 58px;
       padding: 4px 6px 5px;
       justify-content: flex-start;
@@ -705,7 +712,15 @@
     stage.style.marginTop = '0';
     stage.style.transformOrigin = '0 0';
     if (native) {
-      stage.style.transform = 'none';
+      var vw = window.innerWidth || CFG.width;
+      var vh = window.innerHeight || CFG.height;
+      var sx = vw / CFG.width;
+      var sy = vh / CFG.height;
+      if (!isFinite(sx) || sx <= 0) sx = 1;
+      if (!isFinite(sy) || sy <= 0) sy = 1;
+      /* 縦横比を保ったまま窓を埋め、下の黒帯（隙間）を消す */
+      var s = Math.max(sx, sy);
+      stage.style.transform = (Math.abs(s - 1) < 0.01) ? 'none' : ('scale(' + s + ')');
       return;
     }
     var sp = Math.min(window.innerWidth / CFG.width, window.innerHeight / CFG.height);
@@ -713,7 +728,7 @@
     stage.style.transform = 'scale(' + sp + ')';
   }
 
-  /* サイネージ窓は (0,0) 固定。タイトルバー補正の負位置は上下欠けの原因なので使わない */
+  /* 可能な範囲で内寸を 640×192 に近づける */
   function ensureNativeViewport(done) {
     if (!native) {
       if (done) done();
@@ -723,7 +738,6 @@
       window.moveTo(0, 0);
       var chromeX = Math.max(0, window.outerWidth - window.innerWidth);
       var chromeY = Math.max(0, window.outerHeight - window.innerHeight);
-      /* 枠分だけ外寸を足し、中身 640×192 を確保 */
       window.resizeTo(CFG.width + chromeX, CFG.height + chromeY);
       window.moveTo(0, 0);
     } catch (e1) {}
