@@ -143,11 +143,12 @@
       grid-template-rows: 36px 1fr 58px;
     }
     .face-front {
-      width: var(--front);
+      width: 384px;
       height: 192px;
       background: #6a7078;
       position: relative;
-      flex: 0 0 var(--front);
+      flex: 0 0 384px;
+      overflow: hidden;
     }
 
     /* ===== 左面 ===== */
@@ -252,15 +253,16 @@
     /* ===== 正面：地図（暗い下地＋雨色が立つ。商用天気アプリの複製にはしない） ===== */
     #map {
       position: absolute;
-      inset: 0;
+      left: 0;
+      top: 0;
       z-index: 0;
-      width: 100%;
-      height: 100%;
+      width: 384px !important;
+      height: 192px !important;
       background: #6a7078 !important;
     }
     #map.leaflet-container {
-      width: 100% !important;
-      height: 100% !important;
+      width: 384px !important;
+      height: 192px !important;
       background: #6a7078 !important;
     }
     .leaflet-basemap-pane { z-index: 200 !important; }
@@ -329,21 +331,29 @@
     .rain-scale > i:nth-of-type(3) { background: #ffe000; }
     .rain-scale > i:nth-of-type(4) { background: #ff8c00; }
     .rain-scale > i:nth-of-type(5) { background: #e04070; }
+
+    /* 上帯・下バーは地図より前面に固定（サイネージでも欠けない） */
     .front-overlay {
       position: absolute;
-      inset: 0;
-      z-index: 10;
+      left: 0;
+      top: 0;
+      width: 384px;
+      height: 192px;
+      z-index: 10000;
       pointer-events: none;
       overflow: hidden;
     }
     .front-top {
       position: absolute;
-      left: 0; right: 0; top: 0;
+      left: 0;
+      right: 0;
+      top: 0;
       height: 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 8px;
+      box-sizing: border-box;
       background: linear-gradient(180deg, rgba(8,12,20,.78), transparent);
     }
     .front-meta {
@@ -358,17 +368,19 @@
       font-weight: 800;
       padding: 2px 8px;
       border-radius: 999px;
+      flex-shrink: 0;
     }
     .badge.past { background: rgba(255,255,255,.16); color: #d0d8e4; }
     .badge.now  { background: var(--now); color: #3a2c00; }
     .badge.fc   { background: rgba(92,200,255,.24); color: var(--fc); border: 1px solid rgba(92,200,255,.5); }
 
-    /* 下バー：常に正面下端に固定（サイネージでも欠けない） */
     .front-bottom {
       position: absolute;
-      left: 0; right: 0; bottom: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       height: 22px;
-      z-index: 20;
+      z-index: 2;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -388,7 +400,6 @@
       position: absolute; left: 0; top: 0; bottom: 0; width: 0;
       background: linear-gradient(90deg, #3dd68c, #5cc8ff);
       border-radius: inherit;
-      overflow: hidden;
     }
     .timeline-mark {
       position: absolute; top: -3px; width: 2px; height: 11px;
@@ -398,7 +409,9 @@
     }
     .tl-labels {
       position: absolute;
-      left: 8px; right: 8px; bottom: 22px;
+      left: 8px;
+      right: 8px;
+      bottom: 22px;
       height: 12px;
       display: flex;
       align-items: flex-end;
@@ -407,8 +420,12 @@
       line-height: 1;
       color: rgba(210,220,235,.85);
       text-shadow: 0 1px 2px #000;
-      z-index: 20;
+      z-index: 2;
       pointer-events: none;
+    }
+    .tl-labels > span {
+      flex: 0 0 auto;
+      white-space: nowrap;
     }
     .amedas-label { background: transparent !important; border: none !important; }
     .amedas-label > div {
@@ -490,7 +507,7 @@
       position: absolute;
       left: 6px;
       bottom: 24px;
-      z-index: 12;
+      z-index: 10001;
       pointer-events: none;
       font-size: 8px;
       font-weight: 700;
@@ -514,9 +531,9 @@
 
     .toast {
       position: absolute;
-      left: 128px; top: 0;
+      left: 0; top: 0;
       width: 384px; height: 192px;
-      z-index: 30;
+      z-index: 10050;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -687,17 +704,8 @@
     stage.style.marginLeft = '0';
     stage.style.marginTop = '0';
     stage.style.transformOrigin = '0 0';
-    /* レイアウトは常に 640×192。拡大縮小は transform のみ（文字サイズは変えない） */
-    document.documentElement.style.width = '';
-    document.documentElement.style.height = '';
-    document.body.style.width = '';
-    document.body.style.height = '';
     if (native) {
-      var dpr = window.devicePixelRatio || 1;
-      if (!isFinite(dpr) || dpr <= 0) dpr = 1;
-      /* 物理640×192へ。X/Y同じ倍率のみ（縦横比を崩さない） */
-      var s = 1 / dpr;
-      stage.style.transform = (Math.abs(dpr - 1) < 0.02) ? 'none' : ('scale(' + s + ')');
+      stage.style.transform = 'none';
       return;
     }
     var sp = Math.min(window.innerWidth / CFG.width, window.innerHeight / CFG.height);
@@ -705,44 +713,41 @@
     stage.style.transform = 'scale(' + sp + ')';
   }
 
-  /* 表示領域を 640×192 CSS に固定（文字の再計算が走らないようにする） */
+  /* サイネージ窓は (0,0) 固定。タイトルバー補正の負位置は上下欠けの原因なので使わない */
   function ensureNativeViewport(done) {
     if (!native) {
       if (done) done();
       return;
     }
-    var tries = 0;
+    try {
+      window.moveTo(0, 0);
+      var chromeX = Math.max(0, window.outerWidth - window.innerWidth);
+      var chromeY = Math.max(0, window.outerHeight - window.innerHeight);
+      /* 枠分だけ外寸を足し、中身 640×192 を確保 */
+      window.resizeTo(CFG.width + chromeX, CFG.height + chromeY);
+      window.moveTo(0, 0);
+    } catch (e1) {}
+    fitStage();
+    if (done) done();
+  }
+
+  function waitMapBox(done) {
+    var el = document.getElementById('map');
+    var n = 0;
     function tick() {
-      tries += 1;
-      try {
-        var chromeX = Math.max(0, window.outerWidth - window.innerWidth);
-        var chromeY = Math.max(0, window.outerHeight - window.innerHeight);
-        window.resizeTo(CFG.width + chromeX, CFG.height + chromeY);
-        chromeX = Math.max(0, window.outerWidth - window.innerWidth);
-        chromeY = Math.max(0, window.outerHeight - window.innerHeight);
-        var leftPad = Math.floor(chromeX / 2);
-        window.moveTo(-leftPad, -chromeY);
-      } catch (e1) {}
-      fitStage();
-      var ok = Math.abs(window.innerWidth - CFG.width) <= 1
-        && Math.abs(window.innerHeight - CFG.height) <= 1;
-      if (!ok && tries < 12) {
-        setTimeout(tick, 60);
+      n += 1;
+      var r = el.getBoundingClientRect();
+      if ((r.width >= 360 && r.height >= 160) || n > 40) {
+        done();
         return;
       }
-      fitStage();
-      if (done) done();
+      setTimeout(tick, 50);
     }
     tick();
   }
 
   fitStage();
   var fixingViewport = false;
-  ensureNativeViewport(function () {
-    fixMapSize();
-    setTimeout(fixMapSize, 200);
-    setTimeout(fixMapSize, 600);
-  });
   window.addEventListener('resize', function () {
     if (native) {
       if (fixingViewport) {
@@ -820,7 +825,11 @@
 
   function fixMapSize() {
     if (!map) return;
+    var el = document.getElementById('map');
+    el.style.width = '384px';
+    el.style.height = '192px';
     map.invalidateSize({ animate: false, pan: false });
+    map.setView([CFG.lat, CFG.lon], CFG.zoom, { animate: false });
   }
 
   var PLACE_LABELS = [
@@ -830,6 +839,9 @@
 
   function initMap() {
     if (map) return;
+    var el = document.getElementById('map');
+    el.style.width = '384px';
+    el.style.height = '192px';
     map = L.map('map', {
       zoomControl: false,
       attributionControl: false,
@@ -855,7 +867,8 @@
     map.createPane('places');
     map.getPane('places').style.zIndex = 460;
     map.getPane('places').style.pointerEvents = 'none';
-    map.setView([CFG.lat, CFG.lon], CFG.zoom);
+    map.setView([CFG.lat, CFG.lon], CFG.zoom, { animate: false });
+    map.invalidateSize({ animate: false, pan: false });
 
     L.marker([CFG.lat, CFG.lon], {
       interactive: false,
@@ -899,12 +912,10 @@
       errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
       className: 'gsi-base'
     }).addTo(map);
-    requestAnimationFrame(function () {
-      fixMapSize();
-      map.setView([CFG.lat, CFG.lon], CFG.zoom, { animate: false });
-      setTimeout(fixMapSize, 100);
-      setTimeout(fixMapSize, 400);
-    });
+    fixMapSize();
+    setTimeout(fixMapSize, 100);
+    setTimeout(fixMapSize, 400);
+    setTimeout(fixMapSize, 1000);
   }
 
   /* ========== ナウキャスト再生 ========== */
@@ -1418,6 +1429,7 @@
   }
 
   async function loadAmedas() {
+    if (!map) return;
     try {
       var table = await ensureAmedasTable();
       var tRes = await fetch(jmaUrl('/bosai/amedas/data/latest_time.txt') + '?_=' + Date.now());
@@ -1495,6 +1507,7 @@
       await Promise.all([loadRadar(), loadAmedas()]);
       fixMapSize();
       setTimeout(fixMapSize, 200);
+      setTimeout(fixMapSize, 800);
     } catch (e) {
       console.error(e);
       toast.classList.remove('hidden');
@@ -1506,10 +1519,16 @@
     }
   }
 
-  boot();
+  /* 表示サイズが固まってから起動（プレビューと同じ配置でサイネージ再生） */
+  ensureNativeViewport(function () {
+    waitMapBox(function () {
+      boot();
+    });
+  });
   setInterval(function () { loadAmedas(); }, CFG.amedasRefreshMs);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
+      fixMapSize();
       loadRadar().catch(function () {});
       loadAmedas();
     }
